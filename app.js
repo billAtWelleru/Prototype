@@ -22,7 +22,7 @@ const App = {
   refreshAuth(){ $$('.authed').forEach(el=>el.hidden=!this.authed()); },
   route(){
     const r = (location.hash.slice(1)||'login');
-    const views = { login:Views.Login, signup:Views.Signup, mfa:Views.MFA, dashboard:Views.Dashboard, pcp:Views.PCP, hra:Views.HRA, appointment:Views.Appointment, awv:Views.AWV, rewards:Views.Rewards, profile:Views.Profile };
+    const views = { login:Views.Login, signup:Views.Signup, mfa:Views.MFA, dashboard:Views.Dashboard, pcp:Views.PCP, hra:Views.HRA, appointment:Views.Appointment, awv:Views.AWV, rewards:Views.Rewards, profile:Views.Profile, celebration:Views.Celebration };
     const View = views[r] || Views.Login;
     $('#screen').innerHTML = View.render();
     View.bind?.();
@@ -33,17 +33,8 @@ const App = {
   celebrate(mId){
     if(this.state.celebrated[mId]) return; // avoid duplicates in demo
     this.state.celebrated[mId] = true; this.persist();
-    const rewards = {M1:5,M2:5,M3:5,M4:10,M5:50};
-    const nextMap = {M1:'#pcp',M2:'#hra',M3:'#appointment',M4:'#awv',M5:'#rewards'};
-    const titles = {M1:'Account Created', M2:'PCP Confirmed', M3:'HRA Completed', M4:'Appointment Saved', M5:'AWV Completed'};
-    const msg = `+$${rewards[mId]} added to your gift card.`;
-    this.launchConfetti(2200);
-    this.showAccolade({
-      title:`Milestone ${mId} — ${titles[mId]}`,
-      subtitle: msg,
-      nextHref: nextMap[mId],
-      nextText: (mId==='M5'?'View Rewards':'Continue to next step')
-    });
+    this.celebrationData = { mId, reward: {M1:5,M2:5,M3:5,M4:10,M5:50}[mId], next: {M1:'#pcp',M2:'#hra',M3:'#appointment',M4:'#awv',M5:'#rewards'}[mId] };
+    location.hash='#celebration';
   },
   showAccolade({title, subtitle, nextHref, nextText}){
     const ov = $('#overlay');
@@ -83,6 +74,36 @@ const App = {
         a: Math.random()*Math.PI*2,
         v: 1.5+Math.random()*2.5,
         w: 0.02+Math.random()*0.08,
+        col: colors[i%colors.length]
+      });
+    }
+    let start=null;
+    function step(ts){
+      if(!start) start=ts; const t=ts-start; ctx.clearRect(0,0,rect.width,rect.height);
+      parts.forEach(p=>{ p.y += p.v; p.x += Math.sin(p.a+=p.w)*0.9; ctx.save(); ctx.fillStyle=p.col; ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r); ctx.restore(); });
+      if(t<ms){ requestAnimationFrame(step);} else { canvas.remove(); }
+    }
+    requestAnimationFrame(step);
+  },
+  launchCelebrationConfetti(ms=2000){
+    const screen = $('#screen');
+    const canvas = document.createElement('canvas');
+    canvas.className='celebration-confetti'; screen.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const dpr = Math.max(1, window.devicePixelRatio||1);
+    const rect = screen.getBoundingClientRect();
+    canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; canvas.style.width=rect.width+'px'; canvas.style.height=rect.height+'px'; ctx.scale(dpr,dpr);
+
+    const colors = ['#A7C7E7','#BFD8B8','#F5EBD6','#FF6B6B','#2F3E46'];
+    const N = 200; const parts=[];
+    for(let i=0;i<N;i++){
+      parts.push({
+        x: Math.random()*rect.width,
+        y: -20 - Math.random()*rect.height*0.3,
+        r: 4+Math.random()*8,
+        a: Math.random()*Math.PI*2,
+        v: 1.5+Math.random()*3,
+        w: 0.02+Math.random()*0.1,
         col: colors[i%colors.length]
       });
     }
@@ -156,7 +177,6 @@ const Views = {
           <div class='h1'>Your Journey</div>
           <div class='progress' aria-valuenow='${pct}'><span style='width:${pct}%'></span></div>
           <div class='kpi'><span>${pct}% complete</span><span class='badge'>$${earn} earned</span></div>
-          <a class='btn' href='${next}'>Continue</a>
         </section>
         <section class='card'>
           <div class='h2'>Milestones</div>
@@ -167,7 +187,8 @@ const Views = {
             <li>M4: Make Appointment ${j.m4?'✅':''}</li>
             <li>M5: Complete AWV ${j.m5?'✅':''}</li>
           </ol>
-        </section>`;
+        </section>
+        <a class='btn' href='${next}'>Continue</a>`;
     }
   },
   PCP:{
@@ -256,6 +277,31 @@ const Views = {
         </form>
       </section>`;},
     bind(){ $('#pf').addEventListener('submit',e=>{e.preventDefault();const fd=new FormData(e.target);App.state.amazon=fd.get('amazon');App.persist();alert('Saved');}); }
+  },
+  Celebration:{
+    render(){ 
+      const data = App.celebrationData || {};
+      return `
+      <div class='celebration-screen'>
+        <div class='trophy-wrapper'>
+          <div class='trophy'>🏆</div>
+        </div>
+        <div class='celebration-content'>
+          <div class='milestone-title'>Achievement Unlocked!</div>
+          <div class='reward-amount'>+$${data.reward || 0}</div>
+          <div class='reward-text'>added to your gift card</div>
+        </div>
+        <div class='celebration-actions'>
+          <button id='continue-btn' class='btn celebration-btn'>Continue</button>
+          <a href='#dashboard' class='btn ghost celebration-btn'>Dashboard</a>
+        </div>
+      </div>`;
+    },
+    bind(){ 
+      const data = App.celebrationData || {};
+      $('#continue-btn').addEventListener('click', ()=>{ location.hash = data.next || '#dashboard'; });
+      App.launchCelebrationConfetti(4000);
+    }
   }
 };
 

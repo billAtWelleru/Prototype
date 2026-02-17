@@ -51,6 +51,20 @@ body{margin:0; background:linear-gradient(135deg,#eceff1,#ffffff); font-family:s
 .accolade .btn-inline{ padding:8px 10px; border-radius:10px; border:1px solid var(--b); background:var(--blue); font-weight:700; cursor:pointer }
 .accolade .close{ background:#fff }
 
+/* celebration screen */
+.celebration-screen{ position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-around; padding:20px; background:linear-gradient(135deg, var(--sand), var(--blue)); text-align:center }
+.trophy-wrapper{ display:flex; align-items:center; justify-content:center; height:120px }
+.trophy{ font-size:80px; animation:bounce 2s ease-in-out infinite }
+@keyframes bounce{ 0%, 100%{ transform:translateY(0) } 50%{ transform:translateY(-20px) } }
+.celebration-content{ flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px }
+.milestone-title{ font-weight:800; font-size:28px; color:var(--charcoal) }
+.reward-amount{ font-weight:800; font-size:48px; color:var(--coral); line-height:1 }
+.reward-text{ font-size:16px; color:var(--charcoal); opacity:.75 }
+.celebration-actions{ width:100%; display:flex; flex-direction:column; gap:10px }
+.celebration-btn{ min-height:50px; font-size:16px; font-weight:700 }
+.celebration-confetti{ position:absolute; inset:0; pointer-events:none }
+
 @media (prefers-reduced-motion: reduce){
   .confetti-canvas{ display:none }
+  .trophy{ animation:none }
 }
