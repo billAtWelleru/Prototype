@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>WellerU – Mobile Prototype (MVP1 + Accolades)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="phone" role="application" aria-label="WellerU Mobile Prototype">
+    <div class="statusbar" aria-hidden="true">
+      <span>9:41</span><span>📶 🔋</span>
+    </div>
+    <header class="appbar" id="appbar">
+      <button id="menuToggle" class="iconbtn" aria-label="Menu">☰</button>
+      <div class="title">WellerU</div>
+      <button id="contrastToggle" class="iconbtn" aria-label="High contrast">⚑</button>
+    </header>
+
+    <nav id="sideMenu" class="sidemenu" aria-label="Menu" hidden>
+      <button class="close iconbtn" id="closeMenu" aria-label="Close">✕</button>
+      <a href="#dashboard" class="item authed" hidden>🏠 Dashboard</a>
+      <a href="#pcp" class="item authed" hidden>👩‍⚕️ Primary Care</a>
+      <a href="#hra" class="item authed" hidden>📝 Health Risk Assessment</a>
+      <a href="#appointment" class="item authed" hidden>📅 Appointment</a>
+      <a href="#awv" class="item authed" hidden>✅ Annual Wellness Visit</a>
+      <a href="#rewards" class="item authed" hidden>🎁 Rewards</a>
+      <a href="#profile" class="item authed" hidden>👤 Profile</a>
+      <a href="#login" class="item">🔐 Login</a>
+      <a href="#signup" class="item">➕ Create Account</a>
+      <button id="logoutBtn" class="item authed" hidden>🚪 Logout</button>
+    </nav>
+
+    <main id="screen" class="screen" tabindex="-1" aria-live="polite"></main>
+
+    <div id="overlay" class="overlay" aria-live="polite" aria-atomic="true"></div>
+
+    <nav class="tabbar" aria-label="Bottom navigation">
+      <a href="#dashboard" class="tab authed" hidden aria-label="Dashboard">🏠<span>Home</span></a>
+      <a href="#pcp" class="tab authed" hidden aria-label="Primary Care">👩‍⚕️<span>PCP</span></a>
+      <a href="#hra" class="tab authed" hidden aria-label="HRA">📝<span>HRA</span></a>
+      <a href="#appointment" class="tab authed" hidden aria-label="Appointment">📅<span>Appt</span></a>
+      <a href="#profile" class="tab authed" hidden aria-label="Profile">👤<span>Profile</span></a>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
