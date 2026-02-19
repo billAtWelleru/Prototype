@@ -39,6 +39,11 @@ body{margin:0; background:linear-gradient(135deg,#eceff1,#ffffff); font-family:s
 
 .form-row{ display:flex; flex-direction:column; gap:6px }
 
+.checkbox-row{ display:flex; flex-direction:row; gap:8px; align-items:flex-start; font-size:14px; line-height:1.4 }
+.checkbox-row input[type='checkbox']{ margin-top:3px; cursor:pointer; accent-color:var(--sage) }
+.checkbox-row span{ flex:1 }
+.checkbox-row a{ color:var(--blue); text-decoration:underline }
+
 /* overlay & accolades */
 .overlay{ position:absolute; inset:0; pointer-events:none; z-index:6 }
 .confetti-canvas{ position:absolute; inset:0; pointer-events:none }

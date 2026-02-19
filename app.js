@@ -24,7 +24,7 @@ const App = {
   refreshAuth(){ $$('.authed').forEach(el=>el.hidden=!this.authed()); },
   route(){
     const r = (location.hash.slice(1)||'login');
-    const views = { login:Views.Login, signup:Views.Signup, mfa:Views.MFA, dashboard:Views.Dashboard, pcp:Views.PCP, hra:Views.HRA, appointment:Views.Appointment, awv:Views.AWV, rewards:Views.Rewards, profile:Views.Profile, celebration:Views.Celebration };
+    const views = { login:Views.Login, signup:Views.Signup, 'signup-phone':Views.SignupPhone, 'signup-mfa':Views.SignupMFA, 'signup-payor':Views.SignupPayor, 'signup-amazon':Views.SignupAmazon, mfa:Views.MFA, dashboard:Views.Dashboard, pcp:Views.PCP, hra:Views.HRA, appointment:Views.Appointment, awv:Views.AWV, rewards:Views.Rewards, profile:Views.Profile, celebration:Views.Celebration };
     const View = views[r] || Views.Login;
     $('#screen').innerHTML = View.render();
     View.bind?.();
@@ -134,7 +134,7 @@ const Views = {
         <div class='h1'>Welcome to WellerU</div>
         <form id='f' class='grid'>
           <div class='form-row'><label>Email<input class='input' name='email' type='email' required></label></div>
-          <div class='form-row'><label>Password<input class='input' name='pwd' type='password' required></label></div>
+          <div class='form-row'><label>Password<input class='input' name='pwd' type='password'></label></div>
           <button class='btn' type='submit'>Sign in</button>
           <button class='btn ghost' type='button' id='toSignup'>Create Account</button>
         </form>
@@ -144,18 +144,14 @@ const Views = {
         e.preventDefault();
         const fd=new FormData(e.target);
         const email = fd.get('email');
-        const pwd = fd.get('pwd');
+        // password ignored completely
         const users = App.state.users || {};
         if(!users[email]){
           alert('No account found for that email. Please create an account first.');
           location.hash='#signup';
           return;
         }
-        if(pwd !== users[email].pwd){
-          alert('Incorrect password');
-          return;
-        }
-        // successful login
+        // always succeed regardless of password
         App.state.user = users[email];
         App.persist();
         location.hash='#mfa';
@@ -168,43 +164,172 @@ const Views = {
       <section class='card'>
         <div class='h1'>Create your account</div>
         <form id='sign' class='grid'>
+          <label class='form-row'>First Name<input class='input' name='fname' required></label>
+          <label class='form-row'>Last Name<input class='input' name='lname' required></label>
           <label class='form-row'>Email<input class='input' name='email' type='email' required></label>
-          <label class='form-row'>Password<input class='input' name='pwd' type='password' required></label>
-          <label class='form-row'>Full name<input class='input' name='name' required></label>
-          <label class='form-row'>Date of birth<input class='input' type='date' name='dob' required></label>
-          <label class='form-row'>Plan ID<input class='input' name='plan' required></label>
-          <label class='form-row'>Group ID<input class='input' name='group' required></label>
+          <label class='form-row'>Password<input class='input' name='pwd' type='password'></label>
+          <label class='form-row'>Confirm Password<input class='input' name='pwdconfirm' type='password'></label>
           <button class='btn' type='submit'>Create Account</button>
         </form>
+        <p style='font-size:0.85rem; color:#666; margin-top:2rem;'>
+          This prototype stores data locally on your computer. Nothing is transmitted.
+        </p>
       </section>`;},
     bind(){
       $('#sign').addEventListener('submit', e=>{
         e.preventDefault();
         const fd = new FormData(e.target);
         const email = fd.get('email');
-        const pwd = fd.get('pwd');
         if(App.state.users[email]){
           alert('An account already exists with that email. Please log in.');
           location.hash = '#login';
           return;
         }
+        // Start a signup session (not persisting user until final step)
+        App.state.signupSession = {
+          fname: fd.get('fname'),
+          lname: fd.get('lname'),
+          email,
+          // password ignored/not stored
+        };
+        App.persist();
+        location.hash='#signup-phone';
+      });
+    }
+  },
+  SignupPhone:{
+    render(){return `
+      <section class='card'>
+        <div class='h1'>Phone Verification</div>
+        <p>This application requires a second form of authentication.</p>
+        <form id='phone-form' class='grid'>
+          <label class='form-row'>Phone Number<input class='input' name='phone' type='tel' placeholder='(XXX) XXX-XXXX' required></label>
+          <label class='checkbox-row'>
+            <input type='checkbox' name='smsOptIn' id='smsOptIn'>
+            <span>SMS Opt-In: I agree to receive SMS messaging in support of authentication as described in the <a href='https://www.welleru.com/smsprivacy' target='_blank'>SMS Privacy Policy</a></span>
+          </label>
+          <button class='btn' type='submit' id='validatePhoneBtn' disabled>Validate Phone Number</button>
+        </form>
+      </section>`;},
+    bind(){
+      const form = $('#phone-form');
+      const phoneInput = form.querySelector('input[name="phone"]');
+      const smsCheckbox = form.querySelector('#smsOptIn');
+      const submitBtn = form.querySelector('#validatePhoneBtn');
+      
+      const updateButtonState = ()=>{
+        submitBtn.disabled = !phoneInput.value || !smsCheckbox.checked;
+      };
+      
+      phoneInput.addEventListener('input', updateButtonState);
+      smsCheckbox.addEventListener('change', updateButtonState);
+      
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const fd = new FormData(form);
+        App.state.signupSession.phone = fd.get('phone');
+        App.persist();
+        location.hash='#signup-mfa';
+      });
+    }
+  },
+  SignupMFA:{
+    render(){
+      const mfaCode = String(Math.floor(Math.random()*1000000)).padStart(6,'0');
+      return `
+      <section class='card'>
+        <div class='h1'>Multi-Factor Authentication</div>
+        <p>Enter the 6-digit code sent to your phone.</p>
+        <form id='mfa-form' class='grid'>
+          <label class='form-row'>6-Digit Code<input class='input' name='mfacode' type='text' pattern='\\d{6}' maxlength='6' value='${mfaCode}' required></label>
+          <button class='btn' type='submit'>Next</button>
+        </form>
+      </section>`;},
+    bind(){
+      const form = $('#mfa-form');
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const fd = new FormData(form);
+        App.state.signupSession.mfaCode = fd.get('mfacode');
+        App.persist();
+        location.hash='#signup-payor';
+      });
+    }
+  },
+  SignupPayor:{
+    render(){return `
+      <section class='card'>
+        <div class='h1'>Connect with Payor</div>
+        <p>Enter your plan information to locate your account.</p>
+        <form id='payor-form' class='grid'>
+          <label class='form-row'>Plan ID (6 digits)<input class='input' name='plan' type='text' placeholder='XXX-XXX' required></label>
+          <label class='form-row'>Group ID (6 digits)<input class='input' name='group' type='text' placeholder='XXX-XXX' required></label>
+          <label class='form-row'>Date of Birth<input class='input' name='dob' type='date' required></label>
+          <button class='btn' type='submit'>Submit</button>
+        </form>
+      </section>`;},
+    bind(){
+      const form = $('#payor-form');
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const fd = new FormData(form);
+        App.state.signupSession.plan = fd.get('plan');
+        App.state.signupSession.group = fd.get('group');
+        App.state.signupSession.dob = fd.get('dob');
+        App.persist();
+        
+        // Show payor confirmation
+        const payors = ['Cascade Health Plan', 'Evergreen Benefit Alliance', 'SummitCare Insurance'];
+        const selectedPayor = payors[Math.floor(Math.random()*payors.length)];
+        App.state.signupSession.payor = selectedPayor;
+        App.persist();
+        
+        location.hash='#signup-amazon';
+      });
+    }
+  },
+  SignupAmazon:{
+    render(){
+      const email = App.state.signupSession?.email || '';
+      return `
+      <section class='card'>
+        <div class='h1'>Wellness Rewards</div>
+        <p>Your wellness journey is rewarded through an Amazon gift card.</p>
+        <form id='amazon-form' class='grid'>
+          <label class='form-row'>Amazon Account Email<input class='input' name='amazon' type='email' value='${email}' required></label>
+          <button class='btn' type='submit'>Continue</button>
+        </form>
+      </section>`;},
+    bind(){
+      const form = $('#amazon-form');
+      form.addEventListener('submit', e=>{
+        e.preventDefault();
+        const fd = new FormData(form);
+        const email = App.state.signupSession.email;
+        
+        // Create final user object (without password)
         const user = {
           email,
-          pwd,
-          name: fd.get('name'),
-          dob: fd.get('dob'),
-          plan: fd.get('plan'),
-          group: fd.get('group'),
+          fname: App.state.signupSession.fname,
+          lname: App.state.signupSession.lname,
+          phone: App.state.signupSession.phone,
+          dob: App.state.signupSession.dob,
+          plan: App.state.signupSession.plan,
+          group: App.state.signupSession.group,
+          payor: App.state.signupSession.payor,
+          amazon: fd.get('amazon'),
           journey:{m1:false,m2:false,m3:false,m4:false,m5:false}
         };
+        
         App.state.users[email] = user;
         App.state.user = user;
+        delete App.state.signupSession;
         App.persist();
-        // milestone m1 tracks account creation
+        
+        // Mark M1 complete and fire celebration
         App.state.user.journey.m1 = true;
         App.persist();
         App.celebrate('M1');
-        location.hash='#dashboard';
       });
     }
   },
@@ -248,6 +373,7 @@ const Views = {
       $('#clearData').addEventListener('click',()=>{
         if(confirm('This will erase all stored data and log you out. Continue?')){
           localStorage.clear();
+          location.hash='#login';
           location.reload();
         }
       });
@@ -263,13 +389,14 @@ const Views = {
           <details class='card'><summary>Choose Provider</summary>
             <label class='form-row'>Search<input class='input' id='q' placeholder='City or name'></label>
             <div id='list'></div>
+            <textarea class='input' id='aiChat' placeholder='AI chat will occur here to assist the user with finding a best match' rows='6' readonly></textarea>
           </details>
         </div>
       </section>`;},
     bind(){
-      $('#confirm').addEventListener('click',()=>{App.state.user.journey.m2=true;App.persist();App.celebrate('M2');location.hash='#dashboard';});
+      $('#confirm').addEventListener('click',()=>{App.state.user.journey.m2=true;App.persist();App.celebrate('M2');});
       const providers=[{name:'Dr. Lee',specialty:'Family Medicine',city:'Grapevine'},{name:'Dr. Patel',specialty:'Internal Medicine',city:'Dallas'},{name:'Dr. Garcia',specialty:'Family Medicine',city:'Irving'}];
-      const render=q=>{ const wrap=$('#list'); wrap.innerHTML=''; providers.filter(p=>!q||`${p.name} ${p.city}`.toLowerCase().includes(q.toLowerCase())).forEach(p=>{ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<strong>${p.name}</strong><br><small>${p.specialty} • ${p.city}</small><br><button class='btn pick'>Select</button>`; d.querySelector('.pick').addEventListener('click',()=>{App.state.pcpName=p.name;App.persist();alert('Selected '+p.name);}); wrap.appendChild(d); }); };
+      const render=q=>{ const wrap=$('#list'); wrap.innerHTML=''; providers.filter(p=>!q||`${p.name} ${p.city}`.toLowerCase().includes(q.toLowerCase())).forEach(p=>{ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<strong>${p.name}</strong><br><small>${p.specialty} • ${p.city}</small><br><button class='btn pick'>Select</button>`; d.querySelector('.pick').addEventListener('click',()=>{App.state.pcpName=p.name;App.state.user.journey.m2=true;App.persist();App.celebrate('M2');}); wrap.appendChild(d); }); };
       render(''); $('#q').addEventListener('input',e=>render(e.target.value));
     }
   },
