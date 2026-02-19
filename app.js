@@ -5,7 +5,9 @@ const $$ = (s,el=document)=>Array.from(el.querySelectorAll(s));
 const App = {
   state: JSON.parse(localStorage.getItem('welleru_mobile')||'{}'),
   init(){
+    // make sure collections exist
     this.state.celebrated = this.state.celebrated || {}; // M1..M5
+    this.state.users = this.state.users || {};      // stored accounts by email
     this.bindChrome();
     this.route();
     window.addEventListener('hashchange', ()=>this.route());
@@ -138,7 +140,26 @@ const Views = {
         </form>
       </section>`;},
     bind(){
-      $('#f').addEventListener('submit',e=>{e.preventDefault();const fd=new FormData(e.target);App.state.user={email:fd.get('email'),journey:{m1:false,m2:false,m3:false,m4:false,m5:false}};App.persist();location.hash='#mfa';});
+      $('#f').addEventListener('submit',e=>{
+        e.preventDefault();
+        const fd=new FormData(e.target);
+        const email = fd.get('email');
+        const pwd = fd.get('pwd');
+        const users = App.state.users || {};
+        if(!users[email]){
+          alert('No account found for that email. Please create an account first.');
+          location.hash='#signup';
+          return;
+        }
+        if(pwd !== users[email].pwd){
+          alert('Incorrect password');
+          return;
+        }
+        // successful login
+        App.state.user = users[email];
+        App.persist();
+        location.hash='#mfa';
+      });
       $('#toSignup').addEventListener('click',()=>location.hash='#signup');
     }
   },
@@ -147,6 +168,8 @@ const Views = {
       <section class='card'>
         <div class='h1'>Create your account</div>
         <form id='sign' class='grid'>
+          <label class='form-row'>Email<input class='input' name='email' type='email' required></label>
+          <label class='form-row'>Password<input class='input' name='pwd' type='password' required></label>
           <label class='form-row'>Full name<input class='input' name='name' required></label>
           <label class='form-row'>Date of birth<input class='input' type='date' name='dob' required></label>
           <label class='form-row'>Plan ID<input class='input' name='plan' required></label>
@@ -154,7 +177,36 @@ const Views = {
           <button class='btn' type='submit'>Create Account</button>
         </form>
       </section>`;},
-    bind(){ $('#sign').addEventListener('submit', e=>{ e.preventDefault(); location.hash='#login'; }); }
+    bind(){
+      $('#sign').addEventListener('submit', e=>{
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const email = fd.get('email');
+        const pwd = fd.get('pwd');
+        if(App.state.users[email]){
+          alert('An account already exists with that email. Please log in.');
+          location.hash = '#login';
+          return;
+        }
+        const user = {
+          email,
+          pwd,
+          name: fd.get('name'),
+          dob: fd.get('dob'),
+          plan: fd.get('plan'),
+          group: fd.get('group'),
+          journey:{m1:false,m2:false,m3:false,m4:false,m5:false}
+        };
+        App.state.users[email] = user;
+        App.state.user = user;
+        App.persist();
+        // milestone m1 tracks account creation
+        App.state.user.journey.m1 = true;
+        App.persist();
+        App.celebrate('M1');
+        location.hash='#dashboard';
+      });
+    }
   },
   MFA:{
     render(){return `
@@ -188,7 +240,17 @@ const Views = {
             <li>M5: Complete AWV ${j.m5?'✅':''}</li>
           </ol>
         </section>
-        <a class='btn' href='${next}'>Continue</a>`;
+        <a class='btn' href='${next}'>Continue</a>
+        <button id='clearData' class='btn ghost' style='margin-top:2rem;'>Clear All Data</button>`;
+    },
+    bind(){
+      // existing functionality left untouched
+      $('#clearData').addEventListener('click',()=>{
+        if(confirm('This will erase all stored data and log you out. Continue?')){
+          localStorage.clear();
+          location.reload();
+        }
+      });
     }
   },
   PCP:{
