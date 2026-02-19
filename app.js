@@ -366,7 +366,10 @@ const Views = {
           </ol>
         </section>
         <a class='btn' href='${next}'>Continue</a>
-        <button id='clearData' class='btn ghost' style='margin-top:2rem;'>Clear All Data</button>`;
+        <div style='margin-top:2rem; margin-bottom:1rem;'>
+          <p style='font-size:0.85rem; color:#666; margin:0 0 1rem 0;'>To reset the prototype, click 'Clear All Data'</p>
+          <button id='clearData' class='btn ghost'>Clear All Data</button>
+        </div>`;
     },
     bind(){
       // existing functionality left untouched
@@ -380,40 +383,122 @@ const Views = {
     }
   },
   PCP:{
-    render(){ const cur=App.state.pcpName||'No PCP on file'; return `
+    render(){ 
+      const cur=App.state.pcpName||'No PCP on file'; 
+      const hasProvider = !!App.state.pcpName;
+      return `
       <section class='card'>
         <div class='h1'>Primary Care Provider</div>
         <p><strong>Current:</strong> ${cur}</p>
         <div class='grid'>
-          <button id='confirm' class='btn'>Confirm Existing PCP</button>
+          <button id='confirm' class='btn' ${hasProvider ? '' : 'disabled'}>Confirm Existing PCP</button>
           <details class='card'><summary>Choose Provider</summary>
+            <textarea class='input' id='aiChat' placeholder='AI chat will occur here to assist the user with finding a best match, or the user can perform a manual search.' rows='6' readonly></textarea>
             <label class='form-row'>Search<input class='input' id='q' placeholder='City or name'></label>
             <div id='list'></div>
-            <textarea class='input' id='aiChat' placeholder='AI chat will occur here to assist the user with finding a best match' rows='6' readonly></textarea>
           </details>
         </div>
       </section>`;},
     bind(){
-      $('#confirm').addEventListener('click',()=>{App.state.user.journey.m2=true;App.persist();App.celebrate('M2');});
+      const hasProvider = !!App.state.pcpName;
+      const alreadyRewarded = App.state.user.journey.m2;
+      $('#confirm').addEventListener('click',()=>{
+        if(!alreadyRewarded){
+          App.state.user.journey.m2=true;
+          App.persist();
+          App.celebrate('M2');
+        }else{
+          location.hash='#dashboard';
+        }
+      });
       const providers=[{name:'Dr. Lee',specialty:'Family Medicine',city:'Grapevine'},{name:'Dr. Patel',specialty:'Internal Medicine',city:'Dallas'},{name:'Dr. Garcia',specialty:'Family Medicine',city:'Irving'}];
-      const render=q=>{ const wrap=$('#list'); wrap.innerHTML=''; providers.filter(p=>!q||`${p.name} ${p.city}`.toLowerCase().includes(q.toLowerCase())).forEach(p=>{ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<strong>${p.name}</strong><br><small>${p.specialty} • ${p.city}</small><br><button class='btn pick'>Select</button>`; d.querySelector('.pick').addEventListener('click',()=>{App.state.pcpName=p.name;App.state.user.journey.m2=true;App.persist();App.celebrate('M2');}); wrap.appendChild(d); }); };
+      const render=q=>{ const wrap=$('#list'); wrap.innerHTML=''; providers.filter(p=>!q||`${p.name} ${p.city}`.toLowerCase().includes(q.toLowerCase())).forEach(p=>{ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<strong>${p.name}</strong><br><small>${p.specialty} • ${p.city}</small><br><button class='btn pick'>Select</button>`; d.querySelector('.pick').addEventListener('click',()=>{App.state.pcpName=p.name;App.persist();if(!alreadyRewarded){App.state.user.journey.m2=true;App.persist();App.celebrate('M2');}else{location.hash='#dashboard';}}); wrap.appendChild(d); }); };
       render(''); $('#q').addEventListener('input',e=>render(e.target.value));
     }
   },
   HRA:{
-    render(){ const a=App.state.hra||{}; const answered=Object.keys(a).length; const complete=HRA.every(q=>!q.req||a[q.id]); return `
+    render(){ 
+      const a=App.state.hra||{}; 
+      const page = App.state.hraPage || 1;
+      const q1to3 = HRA.slice(0,3);
+      const q4to5 = HRA.slice(3);
+      const currentQuestions = page === 1 ? q1to3 : q4to5;
+      const answered = Object.keys(a).length;
+      const complete = HRA.every(q=>!q.req||a[q.id]);
+      
+      let questionsHtml = '';
+      currentQuestions.forEach(q=>{
+        if(q.type==='number'){
+          questionsHtml += `<div class='form-row'><label>${q.q}${q.req?" <span class='badge'>*</span>":''}<input class='input' type='number' data-id='${q.id}' value='${a[q.id]||''}'></label></div>`;
+        }else{
+          questionsHtml += `<div class='form-row'><label>${q.q}${q.req?" <span class='badge'>*</span>":''}<select class='input' data-id='${q.id}'><option value=''>Select...</option>${(q.opts||[]).map(o=>`<option ${a[q.id]===o?'selected':''}>${o}</option>`).join('')}</select></label></div>`;
+        }
+      });
+      
+      return `
       <section class='card'>
         <div class='h1'>Health Risk Assessment</div>
-        <form id='hf'></form>
+        <p>Page ${page} of 2</p>
+        <form id='hf'>${questionsHtml}</form>
         <div class='progress'><span style='width:${Math.round(answered/HRA.length*100)}%'></span></div>
-        <button id='submit' class='btn' ${complete?'':'disabled'}>Submit HRA</button>
+        <div class='grid' style='margin-top:1rem;'>
+          ${page === 2 ? `<button id='prevBtn' class='btn ghost'>Previous</button>` : ''}
+          ${page === 1 ? `<button id='nextBtn' class='btn'>Next</button>` : `
+            <button id='prevBtn' class='btn ghost'>Previous</button>
+            <button id='submit' class='btn' ${complete?'':'disabled'}>Submit HRA</button>
+          `}
+        </div>
       </section>`;},
-    bind(){ const form=$('#hf'); const a=App.state.hra||{}; HRA.forEach(q=>{ const c=document.createElement('div'); c.className='form-row';
-      if(q.type==='number'){ c.innerHTML=`<label>${q.q}${q.req?" <span class='badge'>*</span>":''}<input class='input' type='number' data-id='${q.id}' value='${a[q.id]||''}'></label>`; }
-      else{ c.innerHTML=`<label>${q.q}${q.req?" <span class='badge'>*</span>":''}<select class='input' data-id='${q.id}'>${(q.opts||[]).map(o=>`<option ${a[q.id]===o?'selected':''}>${o}</option>`).join('')}</select></label>`; }
-      form.appendChild(c); });
-      form.addEventListener('input',e=>{ const id=e.target.dataset.id; if(!id) return; App.state.hra=App.state.hra||{}; App.state.hra[id]=e.target.value; App.persist(); });
-      $('#submit').addEventListener('click',()=>{ App.state.user.journey.m3=true; App.persist(); App.celebrate('M3'); location.hash='#dashboard'; });
+    bind(){ 
+      const form=$('#hf'); 
+      const a=App.state.hra||{}; 
+      
+      form.addEventListener('input',e=>{ 
+        const id=e.target.dataset.id; 
+        if(!id) return; 
+        App.state.hra=App.state.hra||{}; 
+        App.state.hra[id]=e.target.value; 
+        App.persist();
+        this.renderPageButtons();
+      });
+      
+      this.renderPageButtons = ()=>{
+        const complete = HRA.every(q=>!q.req||a[q.id]);
+        const submitBtn = $('#submit');
+        if(submitBtn){
+          submitBtn.disabled = !complete;
+        }
+      };
+      
+      const nextBtn = $('#nextBtn');
+      if(nextBtn){
+        nextBtn.addEventListener('click',()=>{
+          App.state.hraPage = 2;
+          App.persist();
+          App.route();
+        });
+      }
+      
+      const prevBtn = $('#prevBtn');
+      if(prevBtn){
+        prevBtn.addEventListener('click',()=>{
+          App.state.hraPage = 1;
+          App.persist();
+          App.route();
+        });
+      }
+      
+      const submitBtn = $('#submit');
+      if(submitBtn){
+        submitBtn.addEventListener('click',()=>{ 
+          App.state.user.journey.m3=true; 
+          App.state.hraPage = 1;
+          App.persist(); 
+          App.celebrate('M3');
+        });
+      }
+      
+      this.renderPageButtons();
     }
   },
   Appointment:{
@@ -427,7 +512,8 @@ const Views = {
           <button class='btn' type='submit'>Save Appointment</button>
         </form>
       </section>`;},
-    bind(){ $('#af').addEventListener('submit',e=>{e.preventDefault();const fd=new FormData(e.target);App.state.appt={date:fd.get('date'),time:fd.get('time'),loc:fd.get('loc')};App.state.user.journey.m4=true;App.persist();App.celebrate('M4');location.hash='#dashboard';}); }
+    bind(){ $('#af').addEventListener('submit',e=>{e.preventDefault();const fd=new FormData(e.target);App.state.appt={date:fd.get('date'),time:fd.get('time'),loc:fd.get('loc')};App.state.user.journey.m4=true;App.persist();App.celebrate('M4');});
+    }
   },
   AWV:{
     render(){ return `
